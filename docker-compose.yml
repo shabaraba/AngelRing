@@ -8,6 +8,7 @@ services:
     tty: true
     volumes:
       - ./react-app:/app/react
+      - ./static:/app/react/static
     command: sh -c "cd /app/react && bun install && bun run dev --host"
     ports:
       - 3000:3000
@@ -22,6 +23,7 @@ services:
     tty: true
     volumes:
       - ./go-app:/app/go
+      - ./static:/app/go/static
     command: sh -c "cd /app/go && go run main.go"
   mysql:
     build:

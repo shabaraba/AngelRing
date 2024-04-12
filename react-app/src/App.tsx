@@ -1,35 +1,84 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import Dropzone from 'react-dropzone';
+import Modal from 'react-modal';
 
-function App() {
-  const [count, setCount] = useState(0)
+Modal.setAppElement('#root');
+
+const App: React.FC = () => {
+  const [files, setFiles] = useState<string[]>([]);
+  const [modalIsOpen, setModalIsOpen] = useState<boolean>(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<boolean>(false);
+
+  useEffect(() => {
+    setFiles(['/static/images/sample1.png','/static/images/sample2.png'])
+  }, []);
+
+  const openModal = (image: string) => {
+    setSelectedImage(image);
+    setModalIsOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalIsOpen(false);
+  };
+
+  const handleUpload = async () => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+      const response = await fetch('http://your-api-endpoint/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (response.ok) {
+        console.log('Upload successful');
+        setFiles([]);
+      } else {
+        console.error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading files:', error);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div>
+      <Dropzone onDrop={(acceptedFiles) => setFiles([...files, ...acceptedFiles.map(file => URL.createObjectURL(file))])}>
+        {({ getRootProps, getInputProps }) => (
+          <section>
+            <div {...getRootProps()} style={{ border: '1px solid black', padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
+              <input {...getInputProps()} />
+              <p>Drag & drop some files here, or click to select files</p>
+            </div>
+          </section>
+        )}
+      </Dropzone>
+      <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+        {files.map((file, index) => (
+          <img
+            key={index}
+            src={file}
+            alt={`Uploaded file ${index}`}
+            onClick={() => openModal(file)}
+            style={{ width: '100px', height: '100px', margin: '10px', cursor: 'pointer' }}
+          />
+        ))}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+      <button onClick={handleUpload} disabled={files.length === 0 || uploading}>
+        {uploading ? 'Uploading...' : 'Upload'}
+      </button>
+      <Modal isOpen={modalIsOpen} onRequestClose={closeModal}>
+        {selectedImage && <img src={selectedImage} alt="Full size" style={{ maxWidth: '100%' }} />}
+      </Modal>
+    </div>
+  );
+};
 
-export default App
+export default App;
+
