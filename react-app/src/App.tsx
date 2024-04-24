@@ -30,7 +30,10 @@ const App: React.FC = () => {
       files.forEach((file) => {
         formData.append('files', file);
       });
-      const response = await fetch('http://your-api-endpoint/upload', {
+      const response = await fetch('/api/images', {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
         method: 'POST',
         body: formData,
       });

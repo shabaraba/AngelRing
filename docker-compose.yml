@@ -19,7 +19,7 @@ services:
       dockerfile: ./docker/golang/Dockerfile
     container_name: go_container
     ports:
-      - 8000:8000
+      - 8080:8080
     tty: true
     volumes:
       - ./go-app:/app/go
