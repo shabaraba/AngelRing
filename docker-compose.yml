@@ -24,7 +24,7 @@ services:
     volumes:
       - ./go-app:/app/go
       - ./static:/app/go/static
-    command: sh -c "cd /app/go && go run main.go"
+    command: sh -c "cd /app/go && air -c .air.toml"
   mysql:
     build:
       context: .

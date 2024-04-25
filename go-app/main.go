@@ -1,68 +1,48 @@
 package main
 
 import (
-  // "fmt"
   // "io"
   "log"
   "net/http"
   // "os"
-  // "path/filepath"
+  "path/filepath"
   // "sync"
+  // "mime/multipart"
 
   "github.com/gin-gonic/gin"
   // "github.com/disintegration/imaging"
 )
 
 func uploadImage(c *gin.Context) {
-  // // マルチパートフォームデータを解析
-  // err := c.Request.ParseMultipartForm(10 << 20) // 10 MBのメモリを使用
-  //
-  // var wg sync.WaitGroup
-  //
-  // // アップロードされたファイルを処理
-  // files := c.Request.MultipartForm.File["files"]
-  // for _, fileHeader := range files {
-  //   wg.Add(1)
-  //   go func(fileHeader *multipart.FileHeader) {
-  //     defer wg.Done()
-  //
-  //     file, err := fileHeader.Open()
-  //     if err != nil {
-  //       log.Printf("Failed to open file: %s", err.Error())
-  //       return
-  //     }
-  //     defer file.Close()
-  //
-  //     // アップロード先のファイルパスを生成
-  //     savePath := filepath.Join("./static/images", fileHeader.Filename)
-  //
-  //     // ファイルをサーバーに保存
-  //     outputFile, err := os.Create(savePath)
-  //     if err != nil {
-  //       log.Printf("Failed to create file on server: %s", err.Error())
-  //       return
-  //     }
-  //     defer outputFile.Close()
-  //
-  //     // アップロードされたファイルを保存先にコピー
-  //     _, err = io.Copy(outputFile, file)
-  //     if err != nil {
-  //       log.Printf("Failed to save file on server: %s", err.Error())
-  //       return
-  //     }
-  //
-  //     // サムネイルを作成
-  //     thumbnailPath := createThumbnail(savePath)
-  //     if thumbnailPath == "" {
-  //       log.Printf("Failed to create thumbnail")
-  //       return
-  //     }
-  //
-  //     log.Printf("Thumbnail created: %s", thumbnailPath)
-  //   }(fileHeader)
-  // }
-  //
-  // wg.Wait()
+    err := c.Request.ParseMultipartForm(10 << 20) // 10 MBのメモリを使用
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form"})
+        return
+    }
+
+    // var wg sync.WaitGroup
+
+      // アップロードされたファイルを処理
+    form, err := c.MultipartForm()
+    if err != nil {
+        c.String(http.StatusBadRequest, "get form err: %s", err.Error())
+        return
+    }
+    // file, err := c.FormFile("files")
+    files := form.File["files"]
+
+    log.Println(files)
+    log.Println("aaa")
+    for _, file := range files {
+        savePath := filepath.Join("static/images", file.Filename)
+        log.Println(savePath)
+
+        err := c.SaveUploadedFile(file, savePath)
+        if err != nil {
+            c.String(http.StatusBadRequest, "upload file err: %s", err.Error())
+            return
+        }
+    }
 
   c.JSON(http.StatusOK, gin.H{"message": "Upload complete"})
 }
