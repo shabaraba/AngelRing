@@ -5,17 +5,17 @@ import Modal from 'react-modal';
 Modal.setAppElement('#root');
 
 const App: React.FC = () => {
-  const [files, setFiles] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
   const [modalIsOpen, setModalIsOpen] = useState<boolean>(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState<boolean>(false);
 
   useEffect(() => {
-    setFiles(['/static/images/sample1.png','/static/images/sample2.png'])
+    setFiles([])
   }, []);
 
-  const openModal = (image: string) => {
-    setSelectedImage(image);
+  const openModal = (image: File) => {
+    setSelectedImage(URL.createObjectURL(image));
     setModalIsOpen(true);
   };
 
@@ -32,7 +32,6 @@ const App: React.FC = () => {
       });
       const response = await fetch('/api/images', {
         headers: {
-          'Content-Type': 'multipart/form-data',
         },
         method: 'POST',
         body: formData,
@@ -52,7 +51,7 @@ const App: React.FC = () => {
 
   return (
     <div>
-      <Dropzone onDrop={(acceptedFiles) => setFiles([...files, ...acceptedFiles.map(file => URL.createObjectURL(file))])}>
+      <Dropzone onDrop={(acceptedFiles) => setFiles([...files, ...acceptedFiles])}>
         {({ getRootProps, getInputProps }) => (
           <section>
             <div {...getRootProps()} style={{ border: '1px solid black', padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
@@ -66,7 +65,7 @@ const App: React.FC = () => {
         {files.map((file, index) => (
           <img
             key={index}
-            src={file}
+            src={URL.createObjectURL(file)}
             alt={`Uploaded file ${index}`}
             onClick={() => openModal(file)}
             style={{ width: '100px', height: '100px', margin: '10px', cursor: 'pointer' }}
