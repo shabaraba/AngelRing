@@ -1,15 +1,19 @@
 package main
 
 import (
-  // "io"
   "log"
+  "bytes"
+  "fmt"
   "net/http"
   // "os"
   "path/filepath"
+  "image"
+  "image/jpeg"
   // "sync"
   // "mime/multipart"
 
   "github.com/gin-gonic/gin"
+  "github.com/nfnt/resize"
   // "github.com/disintegration/imaging"
 )
 
@@ -34,6 +38,27 @@ func uploadImage(c *gin.Context) {
     log.Println(files)
     log.Println("aaa")
     for _, file := range files {
+        // 画像をデコード
+        img, _, err := image.Decode(file)
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        thumbnail := resize.Resize(100, 100, img, resize.Lanczos)
+        // サムネイルをJPEGとしてエンコード
+        var buf bytes.Buffer
+        if err := jpeg.Encode(&buf, thumbnail, nil); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        fileName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
+        saveThumbnailPath := filepath.Join("static/thumbnails", fileName)
+        log.Println(saveThumbnailPath)
+        err := c.SaveUploadedFile(&buf, saveThumbnailPath)
+        if err != nil {
+            c.String(http.StatusBadRequest, "upload file err: %s", err.Error())
+            return
+        }
         savePath := filepath.Join("static/images", file.Filename)
         log.Println(savePath)
 
