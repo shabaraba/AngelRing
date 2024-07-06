@@ -25,20 +25,22 @@ services:
       - ./go-app:/app/go
       - ./static:/app/go/static
     command: sh -c "cd /app/go && air -c .air.toml"
-  mysql:
-    build:
-      context: .
-      dockerfile: ./docker/mysql/Dockerfile
+  db:
+    image: mysql:8.0
     container_name: mysql_container
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: react-go-app
+      MYSQL_ROOT_PASSWORD: rootpassword  # rootユーザーのパスワードを設定
+      MYSQL_DATABASE: mysql               # 作成するデータベース名
+      MYSQL_USER: user                   # 作成する一般ユーザー名
+      MYSQL_PASSWORD: password       # 一般ユーザーのパスワード
       TZ: 'Asia/Tokyo'
+    ports:
+      - "3306:3306"
     volumes:
       - ./docker/mysql/initdb.d:/docker-entrypoint-initdb.d
       - ./docker/mysql/conf.d:/etc/mysql/conf.d
       - ./docker/mysql/mysql_data:/var/lib/mysql
-    ports:
-    - 3306:3306
     links:
       - go
