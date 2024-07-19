@@ -1,7 +1,7 @@
 node_modules
 mysql_data
-/static/images/*
-!/static/images/empty
+/static/files/*
+!/static/files/empty
 /static/thumbnails/*
 !/static/thumbnails/empty
 .DS_Store

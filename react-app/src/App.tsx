@@ -4,20 +4,20 @@ import Modal from 'react-modal';
 
 Modal.setAppElement('#root');
 
-type Pathes = {
-  path: string; 
-  thumbnailPath: string;
+type ThumbnailPathes = {
+  fileId: string; 
+  path: string;
 }
 
 const App: React.FC = () => {
   const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
-  const [filePathes, setFilePathes] = useState<Array<Pathes>>([]);
+  const [thumbnailPathes, setThumbnailPathes] = useState<Array<ThumbnailPathes>>([]);
   const [modalIsOpen, setModalIsOpen] = useState<boolean>(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState<boolean>(false);
 
   useEffect(() => {
-    fetch('/api/images')
+    fetch('/api/thumbnails')
       .then(response => {
         if (!response.ok) {
           throw new Error('Network response was not ok');
@@ -27,7 +27,7 @@ const App: React.FC = () => {
       .then(response => {
         const data = JSON.parse(response.data);
         console.log(data);
-        setFilePathes(data.map((d: Pathes) => {return {"path": d.path, "thumbnailPath": d.thumbnailPath}}));
+        setThumbnailPathes(data.map((d: ThumbnailPathes) => {return {"fileId": d.fileId, "path": d.path}}));
       })
       .catch(error => {
         console.log(error);
@@ -37,9 +37,28 @@ const App: React.FC = () => {
     setUploadingFiles([])
   }, [uploading]);
 
-  const openModal = (path: string) => {
-    setSelectedImage(path);
-    setModalIsOpen(true);
+  const openModal = (fileId: string) => {
+    fetch(`/api/file/${fileId}`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(response => {
+        console.log(response);
+        const data = response.data;
+        console.log(data);
+        setSelectedImage(data.path);
+        setModalIsOpen(true);
+        setThumbnailPathes(data.map((d: ThumbnailPathes) => {return {"fileId": d.fileId, "path": d.path}}));
+      })
+      .catch(error => {
+        console.log(error);
+        // setError(error.message);
+        // setLoading(false);
+      });
+
   };
 
   const closeModal = () => {
@@ -53,7 +72,7 @@ const App: React.FC = () => {
       uploadingFiles.forEach((file) => {
         formData.append('files', file);
       });
-      const response = await fetch('/api/images', {
+      const response = await fetch('/api/upload', {
         headers: {
         },
         method: 'POST',
@@ -99,12 +118,12 @@ const App: React.FC = () => {
         {uploading ? 'Uploading...' : 'Upload'}
       </button>
       <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-        {filePathes.map((filePath, index) => (
+        {thumbnailPathes.map((thumbnail, index) => (
           <img
             key={index}
-            src={filePath.thumbnailPath}
+            src={thumbnail.path}
             alt={`Uploaded file ${index}`}
-            onClick={() => openModal(filePath.path)}
+            onClick={() => openModal(thumbnail.fileId)}
             style={{ width: '100px', height: '100px', margin: '10px', cursor: 'pointer' }}
           />
         ))}
