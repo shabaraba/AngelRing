@@ -50,72 +50,77 @@ func getFileType(filename string) string {
 }
 
 func uploadFile(c *gin.Context) {
-    file, err := c.FormFile("files")
+    form, err := c.MultipartForm()
     if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        c.String(http.StatusBadRequest, "get form err: %s", err.Error())
         return
     }
+    files := form.File["files"]
 
-    fileName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
-    filePath := filepath.Join("static/files", fileName)
+    // var successFileIDs = []uint;
+    for _, file := range files {
+        fileName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
+        filePath := filepath.Join("static/files", fileName)
 
-    if err := c.SaveUploadedFile(file, filePath); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-
-    fileType := getFileType(file.Filename)
-    // var duration int
-    // var format string
-
-    if fileType == "video" {
-        _, _, err = getVideoMetadata(filePath)
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-            return
-        }
-    }
-
-    // ファイル情報をデータベースに保存
-    // result, err := db.Exec("INSERT INTO files (title, original_filename, path, file_type, duration, format) VALUES (?, ?, ?, ?, ?, ?)",
-    result, err := db.Exec("INSERT INTO files (title, original_filename, path, file_type) VALUES (?, ?, ?, ?)",
-        // file.Filename, file.Filename, filePath, fileType, duration, format)
-        file.Filename, file.Filename, filePath, fileType)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-
-    fileID, _ := result.LastInsertId()
-
-    // サムネイルを生成して保存
-    thumbnailSizes := []struct{ width, height uint }{
-        {100, 100},
-        {200, 200},
-        {300, 300},
-    }
-
-    for _, size := range thumbnailSizes {
-        thumbnailPath, err := createThumbnail(fileName, fileType, size.width, size.height)
-        if err != nil {
-            log.Printf("Failed to create thumbnail: %v", err)
-            continue
-        }
-
-        if err := c.SaveUploadedFile(file, thumbnailPath); err != nil {
+        if err := c.SaveUploadedFile(file, filePath); err != nil {
             c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
             return
         }
 
+        fileType := getFileType(file.Filename)
+        // var duration int
+        // var format string
 
-        _, err = db.Exec("INSERT INTO thumbnails (file_id, path, width, height) VALUES (?, ?, ?, ?)",
-            fileID, thumbnailPath, size.width, size.height)
+        if fileType == "video" {
+            _, _, err = getVideoMetadata(filePath)
+            if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+            }
+        }
+
+        // ファイル情報をデータベースに保存
+        // result, err := db.Exec("INSERT INTO files (title, original_filename, path, file_type, duration, format) VALUES (?, ?, ?, ?, ?, ?)",
+        result, err := db.Exec("INSERT INTO files (title, original_filename, path, file_type) VALUES (?, ?, ?, ?)",
+            // file.Filename, file.Filename, filePath, fileType, duration, format)
+            file.Filename, file.Filename, filePath, fileType)
         if err != nil {
-            log.Printf("Failed to save thumbnail info: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+
+        fileID, _ := result.LastInsertId()
+        // successFileIDs.push(fileID)
+
+        // サムネイルを生成して保存
+        thumbnailSizes := []struct{ width, height uint }{
+            {100, 100},
+            {200, 200},
+            {300, 300},
+        }
+
+        for _, size := range thumbnailSizes {
+            thumbnailPath, err := createThumbnail(fileName, fileType, size.width, size.height)
+            if err != nil {
+                log.Printf("Failed to create thumbnail: %v", err)
+                continue
+            }
+
+            if err := c.SaveUploadedFile(file, thumbnailPath); err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+            }
+
+
+            _, err = db.Exec("INSERT INTO thumbnails (file_id, path, width, height) VALUES (?, ?, ?, ?)",
+                fileID, thumbnailPath, size.width, size.height)
+            if err != nil {
+                log.Printf("Failed to save thumbnail info: %v", err)
+            }
         }
     }
 
-    c.JSON(http.StatusOK, gin.H{"message": "File uploaded successfully", "file_id": fileID})
+    c.JSON(http.StatusOK, gin.H{"message": "File uploaded successfully"})//, "file_ids": fileID})
 }
 
 func createThumbnail(fileName, fileType string, width, height uint) (string, error) {
