@@ -24,6 +24,7 @@ import (
     "github.com/nfnt/resize"
     "github.com/xfrr/goffmpeg/transcoder"
     "gopkg.in/vansante/go-ffprobe.v2"
+    "github.com/rwcarlsen/goexif/exif"
 )
 
 
@@ -31,7 +32,7 @@ var db *sql.DB
 
 func init() {
     var err error
-    db, err = sql.Open("mysql", os.Getenv("DB_CONNECTION"))
+    db, err = sql.Open("mysql", os.Getenv("DB_CONNECTION") + "?parseTime=true") // ?以降はDATETIME型をtime.Timeで受け取れるようにするために必要
     if err != nil {
         log.Fatal(err)
     }
@@ -47,6 +48,36 @@ func getFileType(filename string) string {
     default:
         return "unknown"
     }
+}
+
+func processFileMetadata(filePath string) (time.Time, error) {
+    f, err := os.Open(filePath)
+    if err != nil {
+        return time.Time{}, err
+    }
+    defer f.Close()
+
+    x, err := exif.Decode(f)
+    if err != nil {
+        // EXIFデータがない場合はファイルの作成日時を使用
+        fileInfo, err := os.Stat(filePath)
+        if err != nil {
+            return time.Time{}, err
+        }
+        return fileInfo.ModTime(), nil
+    }
+
+    tm, err := x.DateTime()
+    if err != nil {
+        // 日時情報が取得できない場合はファイルの作成日時を使用
+        fileInfo, err := os.Stat(filePath)
+        if err != nil {
+            return time.Time{}, err
+        }
+        return fileInfo.ModTime(), nil
+    }
+
+    return tm, nil
 }
 
 func uploadFile(c *gin.Context) {
@@ -79,13 +110,17 @@ func uploadFile(c *gin.Context) {
             }
         }
 
-        // ファイル情報をデータベースに保存
-        // result, err := db.Exec("INSERT INTO files (title, original_filename, path, file_type, duration, format) VALUES (?, ?, ?, ?, ?, ?)",
-        result, err := db.Exec("INSERT INTO files (title, original_filename, path, file_type) VALUES (?, ?, ?, ?)",
-            // file.Filename, file.Filename, filePath, fileType, duration, format)
-            file.Filename, file.Filename, filePath, fileType)
+        takenAt, err := processFileMetadata(filePath)
+        log.Printf("takenAt: %v", takenAt)
         if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process file metadata: " + err.Error()})
+            return
+        }
+        // ファイル情報をデータベースに保存
+        result, err := db.Exec("INSERT INTO files (title, file_type, original_filename, path, created_at, updated_at, taken_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            file.Filename, fileType, file.Filename, filePath, time.Now(), time.Now(), takenAt)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file record: " + err.Error()})
             return
         }
 
@@ -326,15 +361,17 @@ type FileRecord struct {
     FileType      string    `json:"fileType"`
     FileName      string    `json:"fileName"`
     Path          string    `json:"path"`
-    CreatedAt     []uint8 `json:"created_at"`
-    UpdatedAt     []uint8 `json:"updated_at"`
+    CreatedAt     []uint8   `json:"created_at"`
+    UpdatedAt     []uint8   `json:"updated_at"`
+	TakenAt       time.Time `json:"takenAt"`
 }
 func getFile(c *gin.Context) {
     fileID := c.Param("id")
 
+    log.Printf("%v", fileID)
     var r FileRecord
     err := db.QueryRow("SELECT * FROM files WHERE id = ?", fileID).
-        Scan(&r.ID, &r.Title, &r.FileType, &r.FileName, &r.Path, &r.CreatedAt, &r.UpdatedAt)
+        Scan(&r.ID, &r.Title, &r.FileType, &r.FileName, &r.Path, &r.CreatedAt, &r.UpdatedAt, &r.TakenAt)
 
     if err != nil {
         if err == sql.ErrNoRows {
