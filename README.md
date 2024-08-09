@@ -18,7 +18,15 @@ https://github.com/users/shabaraba/projects/10
   - golang / gin
 
 ## 起動
-```
+```sh
 docker compose up
+```
+
+## DB設定
+```sh
+docker exec -it go_container bash
+cd migrations
+goose status
+goose up
 ```
 

@@ -4,19 +4,61 @@ import Modal from 'react-modal';
 
 Modal.setAppElement('#root');
 
+type ThumbnailPathes = {
+  fileId: string; 
+  path: string;
+}
+
 const App: React.FC = () => {
-  const [files, setFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
+  const [thumbnailPathes, setThumbnailPathes] = useState<Array<ThumbnailPathes>>([]);
   const [modalIsOpen, setModalIsOpen] = useState<boolean>(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState<boolean>(false);
 
   useEffect(() => {
-    setFiles([])
-  }, []);
+    fetch('/api/thumbnails')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(response => {
+        const data = JSON.parse(response.data);
+        console.log(data);
+        setThumbnailPathes(data.map((d: ThumbnailPathes) => {return {"fileId": d.fileId, "path": d.path}}));
+      })
+      .catch(error => {
+        console.log(error);
+        // setError(error.message);
+        // setLoading(false);
+      });
+    setUploadingFiles([])
+  }, [uploading]);
 
-  const openModal = (image: File) => {
-    setSelectedImage(URL.createObjectURL(image));
-    setModalIsOpen(true);
+  const openModal = (fileId: string) => {
+    fetch(`/api/file/${fileId}`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(response => {
+        console.log(response);
+        const data = response.data;
+        console.log(data);
+        setSelectedImage(data.path);
+        setModalIsOpen(true);
+        setThumbnailPathes(data.map((d: ThumbnailPathes) => {return {"fileId": d.fileId, "path": d.path}}));
+      })
+      .catch(error => {
+        console.log(error);
+        // setError(error.message);
+        // setLoading(false);
+      });
+
   };
 
   const closeModal = () => {
@@ -27,10 +69,10 @@ const App: React.FC = () => {
     setUploading(true);
     try {
       const formData = new FormData();
-      files.forEach((file) => {
+      uploadingFiles.forEach((file) => {
         formData.append('files', file);
       });
-      const response = await fetch('/api/images', {
+      const response = await fetch('/api/upload', {
         headers: {
         },
         method: 'POST',
@@ -38,7 +80,7 @@ const App: React.FC = () => {
       });
       if (response.ok) {
         console.log('Upload successful');
-        setFiles([]);
+        setUploadingFiles([]);
       } else {
         console.error('Upload failed');
       }
@@ -51,7 +93,7 @@ const App: React.FC = () => {
 
   return (
     <div>
-      <Dropzone onDrop={(acceptedFiles) => setFiles([...files, ...acceptedFiles])}>
+      <Dropzone onDrop={(acceptedFiles) => setUploadingFiles([...uploadingFiles, ...acceptedFiles])}>
         {({ getRootProps, getInputProps }) => (
           <section>
             <div {...getRootProps()} style={{ border: '1px solid black', padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
@@ -62,19 +104,30 @@ const App: React.FC = () => {
         )}
       </Dropzone>
       <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-        {files.map((file, index) => (
+        {uploadingFiles.map((file, index) => (
           <img
             key={index}
             src={URL.createObjectURL(file)}
             alt={`Uploaded file ${index}`}
-            onClick={() => openModal(file)}
+            onClick={() => openModal(URL.createObjectURL(file))}
             style={{ width: '100px', height: '100px', margin: '10px', cursor: 'pointer' }}
           />
         ))}
       </div>
-      <button onClick={handleUpload} disabled={files.length === 0 || uploading}>
+      <button onClick={handleUpload} disabled={uploadingFiles.length === 0 || uploading}>
         {uploading ? 'Uploading...' : 'Upload'}
       </button>
+      <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+        {thumbnailPathes.map((thumbnail, index) => (
+          <img
+            key={index}
+            src={thumbnail.path}
+            alt={`Uploaded file ${index}`}
+            onClick={() => openModal(thumbnail.fileId)}
+            style={{ width: '100px', height: '100px', margin: '10px', cursor: 'pointer' }}
+          />
+        ))}
+      </div>
       <Modal isOpen={modalIsOpen} onRequestClose={closeModal}>
         {selectedImage && <img src={selectedImage} alt="Full size" style={{ maxWidth: '100%' }} />}
       </Modal>

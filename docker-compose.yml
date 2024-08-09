@@ -1,4 +1,3 @@
-version: '3'
 services:
   react:
     build:
@@ -13,11 +12,14 @@ services:
     ports:
       - 3000:3000
       - 5173:5173
+    networks:
+      - angel-ring-network
   go:
     build:
       context: .
       dockerfile: ./docker/golang/Dockerfile
     container_name: go_container
+    env_file: .env
     ports:
       - 8080:8080
     tty: true
@@ -25,20 +27,25 @@ services:
       - ./go-app:/app/go
       - ./static:/app/go/static
     command: sh -c "cd /app/go && air -c .air.toml"
-  mysql:
-    build:
-      context: .
-      dockerfile: ./docker/mysql/Dockerfile
+    networks:
+      - angel-ring-network
+  db:
+    image: mysql:8.0
     container_name: mysql_container
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: react-go-app
-      TZ: 'Asia/Tokyo'
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    env_file: .env
+    ports:
+      - "3306:3306"
     volumes:
       - ./docker/mysql/initdb.d:/docker-entrypoint-initdb.d
       - ./docker/mysql/conf.d:/etc/mysql/conf.d
       - ./docker/mysql/mysql_data:/var/lib/mysql
-    ports:
-    - 3306:3306
     links:
       - go
+    networks:
+      - angel-ring-network
+
+networks:
+  angel-ring-network:
+    driver: bridge
